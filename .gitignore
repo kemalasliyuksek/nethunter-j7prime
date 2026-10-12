@@ -1,0 +1,33 @@
+# Build output
+/out/
+/build/
+*.o
+*.ko
+*.ko.*
+
+# Large downloaded assets (kept out of the repo: kernel source, firmware, toolchains, images)
+/kraken/
+/toolchains/
+/firmware/
+/downloads/
+*.img
+*.tar
+*.tar.md5
+*.zip
+*.gz
+*.lz4
+*.bin
+
+# Secrets (never committed)
+.env
+.env.*
+*.key
+*.pem
+*.keystore
+credentials*
+
+# System / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
