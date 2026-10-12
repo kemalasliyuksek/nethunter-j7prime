@@ -24,6 +24,10 @@ ONEUI_DTSI="arch/arm64/boot/exynos7870_Oneui.dtsi"
 OUT_DIR="KRAKEN/Out"
 IMAGE_NAME="S133PY-N18-Nethunter-on7xelte-oneui"
 
+# Pin WireGuard so the kernel's fetch-latest-wireguard.sh does not pull a
+# different version from the network on each build (reproducibility).
+WIREGUARD_VERSION="1.0.20220627"
+
 export ARCH=arm64
 export ANDROID_MAJOR_VERSION=p
 export PLATFORM_VERSION=9.0.0
@@ -44,7 +48,9 @@ cat "${CONFIGS}/${DEVICE_DEFCONFIG}" \
 # that are missing (Kconfig source line + any Makefile obj entry, which for
 # rtl8192eu is an unconditional obj-y) so the tree configures and builds. Our
 # target adapter (Alfa AWUS036NH, RT3070) uses the in-tree rt2800usb driver.
-# TODO: vendor these drivers (aircrack-ng forks) to restore full adapter support.
+# Deferred: these legacy drivers are deprecated upstream and target kernel
+# 4.19+; vendoring them to this 3.18 tree is future work (needed only for
+# RTL-based adapters, which we do not have).
 echo "==> Disabling missing external Realtek drivers"
 WL="drivers/net/wireless"
 for d in rtl8812au rtl8192eu rtl8188eus; do
@@ -55,6 +61,19 @@ for d in rtl8812au rtl8192eu rtl8188eus; do
 	fi
 done
 sed -i -E '/^CONFIG_(88XXAU|RTL8192EU|RTL8188EU)=/d' "${CONFIGS}/${MERGED_DEFCONFIG}"
+
+# Pin WireGuard to a fixed release once, so the kernel's fetch script finds a
+# fresh .check sentinel and skips its network fetch. Keeps builds reproducible.
+if [ ! -f net/wireguard/.pinned ]; then
+	echo "==> Pinning WireGuard ${WIREGUARD_VERSION}"
+	rm -rf net/wireguard && mkdir -p net/wireguard
+	curl -LsS --connect-timeout 30 \
+		"https://git.zx2c4.com/wireguard-linux-compat/snapshot/wireguard-linux-compat-${WIREGUARD_VERSION}.tar.xz" |
+		tar -C net/wireguard -xJf - --strip-components=2 "wireguard-linux-compat-${WIREGUARD_VERSION}/src"
+	sed -i 's/tristate/bool/;s/default m/default y/;' net/wireguard/Kconfig
+	touch net/wireguard/.pinned
+fi
+touch net/wireguard/.check
 
 # The build generates DTBs from arch/arm64/boot/dts/exynos7870.dtsi, which
 # cronos9.sh swaps per variant. For OneUI, mount the OneUI dtsi.
