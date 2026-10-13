@@ -31,6 +31,14 @@ WIREGUARD_VERSION="1.0.20220627"
 export ARCH=arm64
 export ANDROID_MAJOR_VERSION=p
 export PLATFORM_VERSION=9.0.0
+# Custom kernel label, shown in uname and Settings > Kernel version. Kept neutral
+# on purpose: no personal identity, since this is a pentest device and a public repo.
+export LOCALVERSION=-NetHunter-on7xelte
+# Neutral build identity (OPSEC): don't leak the build machine, user or time into the
+# kernel version string. A fixed timestamp also makes the build reproducible.
+export KBUILD_BUILD_USER=nethunter
+export KBUILD_BUILD_HOST=on7xelte
+export KBUILD_BUILD_TIMESTAMP="Mon Jan  1 00:00:00 UTC 2024"
 JOBS="$(nproc)"
 
 echo "==> Toolchain"
