@@ -81,10 +81,21 @@ devre dışı bırakır, WireGuard'ı sabitler, nötr build kimliği ayarlar ve 
 - Harici Realtek sürücülerini (RTL8812AU/AC kartlar) vendorlamak.
 - Cihazı/kernel'i Kali NetHunter projesine upstream etmek.
 
+## Krediler
+
+Bu proje başkalarının emeği üstüne kuruldu:
+
+- **KRAKEN_7870** NetHunter kernel — Thiviyan, BlackMesa / AnanJaser1211 (kernel'imizin
+  fork'landığı Exynos7870 kernel ailesi)
+- **YumiOS Pie** — TheRealModder (OneUI taban ROM)
+- **OrangeFox Recovery** projesi
+- **Kali NetHunter** — Kali / OffSec ekibi
+
 ## Lisans
 
-Kernel, Linux çekirdeğinin türevidir, dolayısıyla o bileşen **GPLv2**. Bu yönetim
-deposunun lisansı henüz belirlenmedi. Telif: Kemal Aslıyüksek.
+Bu yönetim deposu (build script'leri ve dokümantasyon) **MIT Lisansı** altındadır —
+bkz. [LICENSE](LICENSE). Derlediği kernel, Linux çekirdeğinin türevidir ve dolayısıyla
+**GPLv2**'dir. Telif © 2026 Kemal Aslıyüksek.
 
 ## Sorumluluk reddi
 

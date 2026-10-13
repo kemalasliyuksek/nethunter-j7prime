@@ -80,10 +80,21 @@ WireGuard, sets a neutral build identity, and packages the boot image.
 - Vendor the external Realtek drivers (RTL8812AU/AC adapters).
 - Upstream the device/kernel to the Kali NetHunter project.
 
+## Credits
+
+This project stands on the work of others:
+
+- **KRAKEN_7870** NetHunter kernel — Thiviyan, BlackMesa / AnanJaser1211 (the Exynos7870
+  kernel family our kernel is forked from)
+- **YumiOS Pie** — TheRealModder (the OneUI base ROM)
+- **OrangeFox Recovery** project
+- **Kali NetHunter** — the Kali / OffSec team
+
 ## License
 
-The kernel is a derivative of the Linux kernel, so that component is **GPLv2**. The
-license of this management repository is to be decided. Copyright: Kemal Aslıyüksek.
+This management repository (build scripts and documentation) is licensed under the
+**MIT License** — see [LICENSE](LICENSE). The kernel it builds is a derivative of the
+Linux kernel and is therefore **GPLv2**. Copyright © 2026 Kemal Aslıyüksek.
 
 ## Disclaimer
 
