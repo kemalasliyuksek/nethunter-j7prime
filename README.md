@@ -1,59 +1,94 @@
 # nethunter-j7prime
 
-A from-scratch, fully-supported **Kali NetHunter** port for the Samsung Galaxy
-J7 Prime (SM-G610F, `on7xelte`, Exynos 7870).
+A from-scratch, fully-supported **Kali NetHunter** build for the Samsung Galaxy
+J7 Prime (SM-G610F, `on7xelte`, Exynos 7870) — built entirely from source rather
+than flashed from a prebuilt image.
 
-> Status: early development. Phase 1 (research / feasibility) complete; building the
-> toolchain and custom kernel next. Nothing is flashed to a device until the kernel
-> builds and a full backup exists.
+> Status: **working.** Our own custom NetHunter kernel boots on the device, and the
+> full Kali NetHunter stack (app suite + Kali chroot) runs on top of it. The remaining
+> validation is runtime hardware-attack testing (HID, Wi-Fi injection).
 
-## Why
+## What this is
 
-Turn a retired phone into a practical, fully-owned security-research and learning
-device: a platform for mobile app reverse engineering, request/response analysis, and
-authorized hacking of the owner's own devices. This is a personal hobby and learning
-project, not a brand product.
+An old J7 Prime turned into a Kali NetHunter pentest and learning device, with every
+layer assembled by hand: a kernel compiled from source, a matching ROM, root, the
+NetHunter userland, and a Kali chroot. Personal hobby and learning project, not a brand
+product.
+
+## Result (verified on device)
+
+- **Custom kernel** `3.18.140-NetHunter-on7xelte`, compiled with our own Docker build
+  pipeline. Neutral build identity (`nethunter@on7xelte`, fixed timestamp) — no build
+  machine, user, or time leaked into the kernel string (OPSEC + reproducible).
+- **Base:** YumiOS Pie (OneUI, `on7xelte`) + Magisk root (`su` → uid 0).
+- **Kali NetHunter 2026.2:** app suite (5 apps: nethunter, kex, store, store.privileged,
+  nhterm) + **Kali GNU/Linux Rolling** chroot (`apt` works). Installed as a Magisk module
+  so it does **not** replace our kernel.
+- **Kernel features compiled in** (verified via `/proc/config.gz`): AWUS036NH injection
+  driver (`rt2800usb`, RT33XX), HID gadget (`f_hid`), MAC80211/CFG80211, WireGuard.
+
+## Not yet runtime-tested
+
+The hardware-attack features are compiled in but have not been exercised on hardware yet:
+HID attack, AWUS036NH (RT3070) monitor mode + injection (`aireplay-ng -9`), WireGuard.
 
 ## Target device
 
-- Model **SM-G610F**, codename `on7xelte`, SoC Exynos 7870 (ARM64, 8x Cortex-A53), 3 GB RAM.
-- Stock: Android 8.1.0, kernel 3.18.14. Already rooted (Magisk), Knox tripped, OEM unlock allowed.
-- External Wi-Fi: Alfa AWUS036NH (Ralink RT3070, `rt2800usb`, monitor mode + injection, 2.4 GHz).
+- SM-G610F, `on7xelte`, Exynos 7870 (ARM64, 8× Cortex-A53), 3 GB RAM.
+- Stock Android 8.1 — this model **never got official Android 9 Pie**, which is why a
+  OneUI Pie custom ROM (YumiOS) is required before our OneUI kernel.
+- External Wi-Fi: Alfa AWUS036NH (Ralink RT3070), the reliable injection path.
 
-## Approach & decisions
+## How it was built (high level)
 
-- **Base: Android 9 Pie (OneUI).** Chosen for hardware stability and because it is the
-  primary target of the NetHunter kernel we build on. The Android 11 Treble route was
-  dropped (unstable mic/camera on GSI for this device).
-- **Kernel: fork of `Thiviyan/KRAKEN_7870_Nethunter`.** Its build script already targets
-  the G610 family (`on7xelteswa_defconfig`, DTS `exynos7870-on7xelte`). The upstream
-  project is marked dead; we fork it, build and verify on the G610F, fix device-specific
-  issues, keep it alive, and aim to upstream to the Kali NetHunter project.
-- **Wi-Fi injection via the external AWUS036NH.** This sidesteps the uncertain internal
-  BCM4343 radio (no known nexmon port); the `rt2800` driver is already in the kernel.
-- **Flashing with Heimdall** (not Odin), via download mode.
+1. **Kernel:** fork of the KRAKEN_7870 NetHunter kernel, built in Docker (Ubuntu 20.04 +
+   ARM GNU 9.2 toolchain) for the G610X / OneUI (Pie) target. See [`docker/`](docker/).
+2. **Recovery:** OrangeFox R11.0 — TWRP 3.3.0 failed the ROM install with
+   "Updater process ended with signal 9" (legacy-property emulation vs an old update-binary).
+3. **ROM:** YumiOS Pie (OneUI) — the base our kernel needs; its maintainer explicitly
+   supports flashing a Cronos/Kraken kernel after a successful boot.
+4. **Our kernel:** flashed with `dd` to the BOOT partition; re-rooted with Magisk.
+5. **NetHunter:** generic `kali-nethunter-2026.2-generic-arm64-minimal.zip` installed as a
+   Magisk module (keeps our kernel, adds the app suite + chroot + systemless scripts).
+
+## Build
+
+Clone the KRAKEN kernel source into `./kraken` first, then:
+
+```
+docker build -t nethunter-j7prime-builder docker/
+docker run --rm --user 1000:1000 -e HOME=/tmp \
+  -v $PWD/kraken:/kernel \
+  -v $PWD/docker/build-kernel.sh:/usr/local/bin/build-kernel.sh:ro \
+  nethunter-j7prime-builder
+```
+
+This produces a flashable `boot.img` under `kraken/KRAKEN/Out/`. The build script merges
+the device + OneUI + NetHunter defconfigs, disables unavailable Realtek drivers, pins
+WireGuard, sets a neutral build identity, and packages the boot image.
+
+## Known issues
+
+- With our kernel, USB/ADB does not come up at boot until the cable is physically
+  replugged (the host sees no USB device at boot). To be fixed in ramdisk/init
+  (`persist.sys.usb.config` / `init.usb.rc`).
 
 ## Roadmap
 
-1. Research / feasibility — **done**. See [docs/RESEARCH.md](docs/RESEARCH.md).
-2. Build environment (Docker) + aarch64 toolchain; fork & clone KRAKEN.
-3. Build the kernel with `on7xelteswa_defconfig` (no device flashing yet).
-4. Stock Pie firmware backup + TWRP + full backup, then flash.
-5. NetHunter chroot + app suite + feature tests (HID, AWUS036NH injection, etc.).
-6. Mature and upstream to the Kali NetHunter project.
-
-Principle: **build first, flash last.** The device is not touched until the kernel is ready.
+- Runtime hardware tests (HID, AWUS036NH injection, WireGuard).
+- Fix the USB-at-boot issue.
+- Vendor the external Realtek drivers (RTL8812AU/AC adapters).
+- Upstream the device/kernel to the Kali NetHunter project.
 
 ## License
 
-The NetHunter kernel is a derivative of the Linux kernel, so that component **must be
-GPLv2**. The license of this management repository is to be decided. Copyright: Kemal
-Aslıyüksek.
+The kernel is a derivative of the Linux kernel, so that component is **GPLv2**. The
+license of this management repository is to be decided. Copyright: Kemal Aslıyüksek.
 
 ## Disclaimer
 
-For authorized security testing and education on hardware and systems you own or have
-explicit permission to test. You are responsible for how you use it. Flashing custom
-firmware trips the Knox warranty bit and can brick a device; proceed at your own risk.
+For authorized security testing and education on hardware you own or have explicit
+permission to test. Flashing custom firmware trips the Knox warranty bit and can brick a
+device; proceed at your own risk.
 
 Türkçe sürüm: [README.tr.md](README.tr.md).

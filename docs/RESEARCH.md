@@ -104,6 +104,23 @@ radio as a separate research branch while using the external adapter.
 - Direct Samsung open-source link for the correct (Pie, G610F) source version.
 - License of this management repo and the GitHub remote (personal account).
 
+## Outcome (2026-10-13)
+
+Feasibility confirmed and executed end to end. A full Kali NetHunter was built from
+source and installed on the device:
+
+- Custom kernel `3.18.140-NetHunter-on7xelte` (our Docker pipeline, neutral build identity).
+- Base ROM: YumiOS Pie (OneUI) — G610F has no official Pie, so a OneUI Pie custom ROM was
+  required. Recovery: OrangeFox R11.0 (TWRP 3.3.0 failed the ROM install with "signal 9").
+- Root: Magisk v30.7. NetHunter: generic 2026.2 minimal zip installed as a Magisk module
+  (our kernel kept, not replaced).
+- Kali chroot runs (`Kali GNU/Linux Rolling`, `apt` works). Kernel features compiled and
+  verified in `/proc/config.gz`: RT2800USB_RT33XX (AWUS036NH), f_hid, MAC80211/CFG80211,
+  WireGuard.
+
+Pending: runtime hardware tests (HID, injection, WireGuard). Known issue: USB/ADB not up
+at boot (needs a cable replug). See the README for current status and the full build flow.
+
 ## Sources
 
 - https://github.com/Thiviyan/KRAKEN_7870_Nethunter
