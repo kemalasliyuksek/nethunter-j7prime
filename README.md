@@ -5,8 +5,9 @@ J7 Prime (SM-G610F, `on7xelte`, Exynos 7870) — built entirely from source rath
 than flashed from a prebuilt image.
 
 > Status: **working.** Our own custom NetHunter kernel boots on the device, and the
-> full Kali NetHunter stack (app suite + Kali chroot) runs on top of it. The remaining
-> validation is runtime hardware-attack testing (HID, Wi-Fi injection).
+> full Kali NetHunter stack (app suite + Kali chroot) runs on top of it. External Wi-Fi
+> monitor mode + injection (AWUS036NH) is now runtime-verified; the remaining validation
+> is HID attack and WireGuard.
 
 ## What this is
 
@@ -27,14 +28,25 @@ product.
 - **Kernel features compiled in** (verified via `/proc/config.gz`): AWUS036NH injection
   driver (`rt2800usb`, RT33XX), HID gadget (`f_hid`), MAC80211/CFG80211, WireGuard.
 
+## Runtime-verified (on device)
+
+- **External Wi-Fi monitor mode + injection** with the Alfa AWUS036NH (RT3070): `wlan1`
+  put into monitor mode, `aireplay-ng -9` injection test at ~93% success, passive
+  `airodump-ng` capture, and a client-less PMKID grab — all working. This required the
+  `rt2870.bin` firmware fix in [Known issues](#known-issues); the adapter will not come
+  up without it.
+
 ## Not yet runtime-tested
 
-The hardware-attack features are compiled in but have not been exercised on hardware yet:
-HID attack, AWUS036NH (RT3070) monitor mode + injection (`aireplay-ng -9`), WireGuard.
+Compiled in but not yet exercised on hardware: HID attack, WireGuard.
 
 ## Target device
 
 - SM-G610F, `on7xelte`, Exynos 7870 (ARM64, 8× Cortex-A53), 3 GB RAM.
+- **64-bit SoC and kernel, but a 32-bit Android userspace** (`zygote32`, `armeabi-v7a`,
+  so `uname -m` reports `armv8l`). The Kali chroot itself is 64-bit (arm64). This split
+  matters: the frida-server must be the `android-arm` (32-bit) build, and pip inside the
+  chroot needs an aarch64-wheel workaround (see Known issues).
 - Stock Android 8.1 — this model **never got official Android 9 Pie**, which is why a
   OneUI Pie custom ROM (YumiOS) is required before our OneUI kernel.
 - External Wi-Fi: Alfa AWUS036NH (Ralink RT3070), the reliable injection path.
@@ -72,11 +84,24 @@ WireGuard, sets a neutral build identity, and packages the boot image.
 - With our kernel, USB/ADB does not come up at boot until the cable is physically
   replugged (the host sees no USB device at boot). To be fixed in ramdisk/init
   (`persist.sys.usb.config` / `init.usb.rc`).
+- **AWUS036NH needs the `rt2870.bin` firmware, which YumiOS does not ship.** Without it
+  the `rt2800usb` driver loads but the interface never comes up
+  (`rt2x00lib_request_firmware: Failed to request Firmware`). The kernel's direct
+  firmware load from `/data` is blocked by SELinux, and ueventd only searches the system
+  firmware directories. Fix: drop `rt2870.bin` (from the `linux-firmware` project) into
+  `/vendor/firmware` via a small Magisk module (`system/vendor/firmware/rt2870.bin`, with
+  SELinux context `vendor_firmware_file`) so it loads at every boot.
+- **frida-server does not run on this 32-bit Android.** The frida *client* installs fine
+  in the chroot (using a `uname` shim so pip accepts the aarch64 wheels), but the
+  `android-arm` frida-server crashes on launch inside the Samsung `dex2oat` path (missing
+  `vendor.samsung.security.proca@1.0.so`). Dynamic instrumentation is blocked for now;
+  static analysis and `mitmproxy` traffic interception are unaffected.
 
 ## Roadmap
 
-- Runtime hardware tests (HID, AWUS036NH injection, WireGuard).
+- Remaining runtime hardware tests: HID attack, WireGuard (AWUS036NH injection done).
 - Fix the USB-at-boot issue.
+- Get frida-server working on 32-bit Android, or document it as unsupported.
 - Vendor the external Realtek drivers (RTL8812AU/AC adapters).
 - Upstream the device/kernel to the Kali NetHunter project.
 

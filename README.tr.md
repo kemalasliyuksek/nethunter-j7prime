@@ -6,8 +6,8 @@ imaj flash etmek yerine her katman elle kuruldu.
 
 > Durum: **çalışıyor.** Kendi derlediğimiz özel NetHunter kernel'i cihazda boot
 > ediyor ve tam Kali NetHunter yığını (uygulama paketi + Kali chroot) onun üstünde
-> çalışıyor. Kalan doğrulama, donanım saldırı özelliklerinin runtime testleri (HID,
-> Wi-Fi injection).
+> çalışıyor. Harici Wi-Fi monitor mode + injection (AWUS036NH) artık runtime doğrulandı;
+> kalan doğrulama HID saldırısı ve WireGuard.
 
 ## Bu nedir
 
@@ -28,14 +28,24 @@ userland ve Kali chroot. Kişisel hobi ve öğrenme projesi, marka ürünü değ
   injection sürücüsü (`rt2800usb`, RT33XX), HID gadget (`f_hid`), MAC80211/CFG80211,
   WireGuard.
 
+## Runtime doğrulandı (cihazda)
+
+- **Harici Wi-Fi monitor mode + injection**, Alfa AWUS036NH (RT3070) ile: `wlan1` monitor
+  moduna alındı, `aireplay-ng -9` injection testi ~%93 başarı, pasif `airodump-ng` capture
+  ve istemcisiz bir PMKID yakalama — hepsi çalışıyor. Bu, aşağıdaki Bilinen sorunlardaki
+  `rt2870.bin` firmware düzeltmesini gerektirdi; adaptör o olmadan ayağa kalkmıyor.
+
 ## Henüz runtime test edilmedi
 
-Donanım saldırı özellikleri kernel'e derlendi ama henüz donanımda çalıştırılmadı:
-HID saldırısı, AWUS036NH (RT3070) monitor mode + injection (`aireplay-ng -9`), WireGuard.
+Kernel'e derlendi ama henüz donanımda çalıştırılmadı: HID saldırısı, WireGuard.
 
 ## Hedef cihaz
 
 - SM-G610F, `on7xelte`, Exynos 7870 (ARM64, 8× Cortex-A53), 3 GB RAM.
+- **64-bit SoC ve kernel, ama 32-bit Android userspace** (`zygote32`, `armeabi-v7a`, bu
+  yüzden `uname -m` → `armv8l`). Kali chroot'un kendisi 64-bit (arm64). Bu ayrım önemli:
+  frida-server'ın `android-arm` (32-bit) sürümü olması gerekiyor ve chroot'taki pip
+  aarch64-wheel workaround'u istiyor (bkz. Bilinen sorunlar).
 - Stok Android 8.1 — bu model **resmi Android 9 Pie almadı**, bu yüzden OneUI kernel'imizden
   önce bir OneUI Pie custom ROM (YumiOS) gerekiyor.
 - Harici Wi-Fi: Alfa AWUS036NH (Ralink RT3070), güvenilir injection yolu.
@@ -73,11 +83,24 @@ devre dışı bırakır, WireGuard'ı sabitler, nötr build kimliği ayarlar ve 
 - Kernel'imizle USB/ADB boot'ta otomatik gelmiyor, kablo fiziksel çıkar-tak gerekiyor
   (host boot'ta USB cihazı görmüyor). Ramdisk/init tarafında düzeltilecek
   (`persist.sys.usb.config` / `init.usb.rc`).
+- **AWUS036NH, YumiOS'un içermediği `rt2870.bin` firmware'ine ihtiyaç duyuyor.** O olmadan
+  `rt2800usb` sürücüsü yükleniyor ama arayüz ayağa kalkmıyor
+  (`rt2x00lib_request_firmware: Failed to request Firmware`). Kernel'in `/data`'dan doğrudan
+  firmware yüklemesini SELinux engelliyor, ueventd ise yalnızca sistem firmware dizinlerine
+  bakıyor. Çözüm: `rt2870.bin`'i (`linux-firmware` projesinden) küçük bir Magisk modülüyle
+  `/vendor/firmware` altına koymak (`system/vendor/firmware/rt2870.bin`, SELinux context
+  `vendor_firmware_file`); böylece her boot'ta yüklenir.
+- **frida-server bu 32-bit Android'de çalışmıyor.** frida *client* chroot'a sorunsuz
+  kuruluyor (pip'in aarch64 wheel'lerini kabul etmesi için bir `uname` shim'iyle), ama
+  `android-arm` frida-server başlarken Samsung `dex2oat` yolunda çöküyor (eksik
+  `vendor.samsung.security.proca@1.0.so`). Dinamik enstrümantasyon şimdilik kapalı; statik
+  analiz ve `mitmproxy` trafik yakalama etkilenmiyor.
 
 ## Yol haritası
 
-- Runtime donanım testleri (HID, AWUS036NH injection, WireGuard).
+- Kalan runtime donanım testleri: HID saldırısı, WireGuard (AWUS036NH injection tamam).
 - USB-at-boot sorununu düzeltmek.
+- frida-server'ı 32-bit Android'de çalıştırmak ya da desteklenmiyor olarak belgelemek.
 - Harici Realtek sürücülerini (RTL8812AU/AC kartlar) vendorlamak.
 - Cihazı/kernel'i Kali NetHunter projesine upstream etmek.
 

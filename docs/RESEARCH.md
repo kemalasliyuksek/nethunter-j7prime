@@ -1,6 +1,6 @@
 # J7 Prime (SM-G610F) Kali NetHunter Port — Research Notes
 
-Last updated: 2026-10-12
+Last updated: 2026-10-14
 
 Goal: a from-scratch, fully-supported, open-source Kali NetHunter port for the Samsung
 Galaxy J7 Prime (SM-G610F, `on7xelte`, Exynos 7870). Next phase: mobile app reverse
@@ -9,6 +9,8 @@ engineering, request/response analysis, authorized pentesting of the owner's own
 ## Device facts (read from the device)
 
 - Model SM-G610F, codename `on7xelte`, SoC Exynos 7870 (ARM64, 8x Cortex-A53), 3 GB RAM.
+  Note: SoC and kernel are 64-bit, but the Android userspace is 32-bit (`zygote32`,
+  `armeabi-v7a`, so `uname -m` = `armv8l`); the Kali chroot itself is 64-bit (arm64).
 - Stock Android 8.1.0 (SDK 27), kernel 3.18.14, security patch 2020-04, build `G610FDDS1CTE4`, CSC TUR.
 - Magisk 29.0 rooted, Zygisk on. Knox warranty bit = 1 (tripped). OEM unlock allowed.
 - `/data` unencrypted. Internal Wi-Fi: Broadcom BCM4343 (bcmdhd). USB OTG, HIDRAW, UHID enabled.
@@ -120,6 +122,32 @@ source and installed on the device:
 
 Pending: runtime hardware tests (HID, injection, WireGuard). Known issue: USB/ADB not up
 at boot (needs a cable replug). See the README for current status and the full build flow.
+
+## Outcome (2026-10-14) — runtime attack validation
+
+First real attack-feature session on hardware, run over Wi-Fi ADB (the external adapter
+takes the device's only USB port, so `adb tcpip` moves the shell onto Wi-Fi while the
+adapter is plugged in).
+
+- **Monitor mode + injection verified.** AWUS036NH (RT3070, `rt2800usb`) put into monitor
+  mode; `aireplay-ng -9` injection test at ~93%. Passive `airodump-ng` recon and a
+  client-less PMKID capture both worked. This was the project's last unverified core
+  capability — the custom kernel is now proven attack-capable, not just "compiled in".
+- **Firmware gap found and fixed.** The adapter would not come up: `rt2870.bin` is missing
+  from YumiOS. The kernel's direct firmware load from `/data` is blocked by SELinux and
+  ueventd only searches the system firmware directories, so the fix is a Magisk module
+  placing `rt2870.bin` (from linux-firmware) at `/vendor/firmware` with the
+  `vendor_firmware_file` SELinux context, loaded at every boot.
+- **frida: client yes, server no.** frida-tools/objection installed in the chroot after a
+  small `uname` shim made pip accept the aarch64 wheels (the userspace reports `armv8l`,
+  so pip otherwise tried to build from source). The `android-arm` frida-server crashes on
+  launch in Samsung's `dex2oat` path (missing `vendor.samsung.security.proca@1.0.so`), so
+  dynamic instrumentation is blocked for now; `mitmproxy` and static APK analysis remain.
+- **WPS/PMKID note.** The owner's target AP has WPS open (v2.0, not locked) but resists
+  Pixie-Dust (it ends the WPS exchange after M2). PMKID was captured cleanly without
+  touching any client. On-device cracking is impractical — Cortex-A53 does ~330 H/s with
+  hashcat under PoCL, and hashcat needs a low-memory `-w 1` just to start — so cracking
+  belongs off-device.
 
 ## Sources
 
